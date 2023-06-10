@@ -5,5 +5,6 @@ module.exports = {
 	
 	async run(client, content, args) {
 		console.log("pong")
+		client.sendMessage("pong");
 	}
 }

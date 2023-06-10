@@ -1,70 +1,111 @@
 require('dotenv').config();
+
 const playwright = require('playwright-extra');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
+const axios = require('axios');
 
 const baseFetchUrl = 'https://kick.com';
 
 const blockedResources = [
-	// Assets
-	'*/favicon.ico',
-	// '.css',
-	'.jpg',
-	'.jpeg',
-	'.png',
-	'.svg',
-	'.woff',
-	'.woff2',
-	'.webp',
+  // Assets
+  '*/favicon.ico',
+  // '.css',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.svg',
+  '.woff',
+  '.woff2',
+  '.webp',
 
-	// Analytics and other fluff
-	'q.stripe.com'
+  // Analytics and other fluff
+  'q.stripe.com'
 ];
 
 
 console.log("test2");
 
+let browser, page, client, context;
+let ready = false;
 
-(async () => {
-	console.log('Launching browser')
+async function sendMessage(message) {
+  await page.evaluate(async (message) => {
+    const messageInput = document.querySelector('div[id="message-input"]');
+    messageInput.focus();
+    messageInput.textContent = message;
 
-	playwright.chromium.use(stealthPlugin());
 
-	const browser = await playwright.chromium.launch({ headless: false, devtools: false });
+    const enterKeyEvent = new KeyboardEvent('keydown', { key: 'Enter' });
 
-	console.log('Browser opened')
+    messageInput.dispatchEvent(enterKeyEvent);
 
-	const context = await browser.newContext();
-	const page = await context.newPage();
+    await new Promise(resolve => setTimeout(resolve, 200));
 
-	const client = await page.context().newCDPSession(page);
-	await client.send('Network.setBlockedURLs', { urls: blockedResources })
-	await client.send('Network.enable')
-	await page.goto(`${baseFetchUrl}/community-guidelines`)
+    const agreeButton = document.querySelector('button[class="variant-action size-sm !w-full"]');
+    if (agreeButton) {
+      console.log(agreeButton)
+      agreeButton.click();
+      messageInput.dispatchEvent(enterKeyEvent);
+    }
 
-	// Click on the login button
-	await page.click('#login-button');
+    ready = true;
+  }, message);
+}
 
-	// Wait for the login form to appear
-	await page.waitForSelector('input[placeholder="you@example.com"]');
+async function initBrowser() {
+  console.log('Launching browser')
 
-	// Fill in the username and password fields
-	await page.type('input[placeholder="you@example.com"]', process.env.KICK_USERNAME);
-	await page.type('input[type="password"]', process.env.KICK_PASSWORD);
+  playwright.chromium.use(stealthPlugin());
 
-	// js Timeout 5s
-	await new Promise(resolve => setTimeout(resolve, 2000));
+  browser = await playwright.chromium.launch({ headless: false, devtools: false });
 
-	// Click on the submit button
-	await page.click('button[type="submit"]');
+  console.log('Browser opened')
 
-	// Wait for the network request to complete
-	await page.waitForURL(baseFetchUrl);
+  context = await browser.newContext();
+  page = await context.newPage();
 
-	// Get cookies
-	const cookies = await context.cookies();
-	
-	// Print the XSRF-TOKEN cookie value
-	const xsrfTokenCookie = cookies.find(cookie => cookie.name === 'XSRF-TOKEN');
-	const xsrfTokenValue = xsrfTokenCookie ? xsrfTokenCookie.value : null;
-	console.log('XSRF-TOKEN:', xsrfTokenValue);
-})();
+  client = await page.context().newCDPSession(page);
+  await client.send('Network.setBlockedURLs', { urls: blockedResources })
+  await client.send('Network.enable')
+  await page.goto(`${baseFetchUrl}/community-guidelines`)
+
+  // Click on the login button
+  await page.click('#login-button');
+
+  // Wait for the login form to appear
+  await page.waitForSelector('input[placeholder="you@example.com"]');
+
+  // Fill in the username and password fields
+  await page.type('input[placeholder="you@example.com"]', process.env.KICK_USERNAME);
+  await page.type('input[type="password"]', process.env.KICK_PASSWORD);
+
+  // js Timeout 5s
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  // Click on the submit button
+  await page.click('button[type="submit"]');
+
+  // Wait for the network request to complete
+  await page.waitForURL(baseFetchUrl);
+
+  // Go to basefetchURl/bycop
+  await page.goto(`${baseFetchUrl}/bycop/chatroom`);
+
+  // Wait for the network request to complete
+  await page.waitForURL(`${baseFetchUrl}/bycop/chatroom`);
+
+  // Wait for the network request to complete
+  await page.waitForSelector('div[id="message-input"]');
+
+  sendMessage("Bot is Ready!");
+}
+
+async function isReady() {
+  return ready;
+}
+
+module.exports = {
+  initBrowser,
+  sendMessage,
+  isReady
+}

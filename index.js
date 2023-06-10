@@ -1,12 +1,14 @@
 const WebSocket = require('ws');
 const fs = require('fs');
+const browser = require('./auth.js');
 
 const channelID = '116295';
 const chatroomID = '116293';
 const pusherUrl = "wss://ws-us2.pusher.com/app/eb1d5f283081a78b932c?protocol=7&client=js&version=7.4.0&flash=false";
 
 const client = {
-	commands: []
+	commands: [],
+	sendMessage: browser.sendMessage
 }
 
 fs.readdir("./commands/", (err, files) => {
@@ -33,6 +35,11 @@ fs.readdir("./commands/", (err, files) => {
 let ws = new WebSocket(pusherUrl);
 
 function handleMessages(data) {
+	if (!browser.isReady()) {
+		console.log("Browser not ready")
+		return;
+	}
+
 	console.log(data.sender.username + ": " + data.content)
 
 	let prefix = "!";
@@ -43,7 +50,6 @@ function handleMessages(data) {
 	let messageArray = data.content.split(" ")
 	let cmd = messageArray[0]
 
-	console.log(client.commands, cmd)
 	let commandfile = client.commands.find(command => command.data.name === cmd.slice(prefix.length));
 	if (commandfile) {
 		console.log("Command found")
@@ -97,3 +103,5 @@ ws.onclose = () => {
 	}
 		, 5000);
 };
+
+browser.initBrowser();
