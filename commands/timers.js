@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { addTimer, deleteTimer } = require("../modules/timers/timers");
 
 module.exports = {
 	data: {
@@ -60,6 +61,8 @@ module.exports = {
 				
 				fs.writeFileSync("./modules/timers/timers.json", JSON.stringify(timers));
 
+				addTimer(timeS, message);
+
 				client.sendMessage(`Timer #${timers.length} added`);
 				break;
 
@@ -77,6 +80,8 @@ module.exports = {
 
 				timers.splice(id - 1, 1);
 				fs.writeFileSync("./modules/timers/timers.json", JSON.stringify(timers));
+
+				deleteTimer(id - 1);
 
 				client.sendMessage(`Timer ${id} deleted`);
 				break;
