@@ -23,8 +23,6 @@ const blockedResources = [
 ];
 
 
-console.log("test2");
-
 let browser, page, client, context;
 let ready = false;
 
