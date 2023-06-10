@@ -1,43 +1,70 @@
 require('dotenv').config();
-const puppeteer = require('puppeteer');
+const playwright = require('playwright-extra');
+const stealthPlugin = require('puppeteer-extra-plugin-stealth');
+
+const baseFetchUrl = 'https://kick.com';
+
+const blockedResources = [
+	// Assets
+	'*/favicon.ico',
+	// '.css',
+	'.jpg',
+	'.jpeg',
+	'.png',
+	'.svg',
+	'.woff',
+	'.woff2',
+	'.webp',
+
+	// Analytics and other fluff
+	'q.stripe.com'
+];
+
+
+console.log("test2");
+
 
 (async () => {
-  const browser = await puppeteer.launch(
-    {
-      headless: false,
-      defaultViewport: null,
-      args: ['--enable-javascript', '--enable-cookies']
-    });
-  const page = await browser.newPage();
+	console.log('Launching browser')
 
-  // Navigate to the website
-  await page.goto('https://kick.com');
+	playwright.chromium.use(stealthPlugin());
 
-  // Click on the login button
-  await page.click('#login-button');
+	const browser = await playwright.chromium.launch({ headless: false, devtools: false });
 
-  await page.waitForSelector('input[placeholder="you@example.com"]');
+	console.log('Browser opened')
 
-  // Fill in the username and password fields
-  await page.type('input[placeholder="you@example.com"]', process.env.USERNAME);
-  await page.type('input[type="password"]', process.env.PASSWORD);
+	const context = await browser.newContext();
+	const page = await context.newPage();
 
-  // js Timeout 5s
-  // await new Promise(resolve => setTimeout(resolve, 5000));
+	const client = await page.context().newCDPSession(page);
+	await client.send('Network.setBlockedURLs', { urls: blockedResources })
+	await client.send('Network.enable')
+	await page.goto(`${baseFetchUrl}/community-guidelines`)
 
-  // Click on the submit button
-  await page.click('button[type="submit"]');
+	// Click on the login button
+	await page.click('#login-button');
 
-  // Wait for the network request to complete
-  await page.waitForNavigation();
+	// Wait for the login form to appear
+	await page.waitForSelector('input[placeholder="you@example.com"]');
 
-  // Get the value of the XSRF-TOKEN cookie
-  const cookies = await page.cookies();
-  const xsrfTokenCookie = cookies.find(cookie => cookie.name === 'XSRF-TOKEN');
-  const xsrfTokenValue = xsrfTokenCookie ? xsrfTokenCookie.value : null;
+	// Fill in the username and password fields
+	await page.type('input[placeholder="you@example.com"]', process.env.KICK_USERNAME);
+	await page.type('input[type="password"]', process.env.KICK_PASSWORD);
 
-  // Print the XSRF-TOKEN cookie value
-  console.log('XSRF-TOKEN:', xsrfTokenValue);
+	// js Timeout 5s
+	await new Promise(resolve => setTimeout(resolve, 2000));
 
-  await browser.close();
+	// Click on the submit button
+	await page.click('button[type="submit"]');
+
+	// Wait for the network request to complete
+	await page.waitForURL(baseFetchUrl);
+
+	// Get cookies
+	const cookies = await context.cookies();
+	
+	// Print the XSRF-TOKEN cookie value
+	const xsrfTokenCookie = cookies.find(cookie => cookie.name === 'XSRF-TOKEN');
+	const xsrfTokenValue = xsrfTokenCookie ? xsrfTokenCookie.value : null;
+	console.log('XSRF-TOKEN:', xsrfTokenValue);
 })();
