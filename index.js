@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const fs = require('fs');
 const browser = require('./auth.js');
+const { loadTimers } = require('./modules/timers/timers.js');
 
 const channelID = '116295';
 const chatroomID = '116293';
@@ -35,11 +36,6 @@ fs.readdir("./commands/", (err, files) => {
 let ws = new WebSocket(pusherUrl);
 
 function handleMessages(data) {
-	if (!browser.isReady()) {
-		console.log("Browser not ready")
-		return;
-	}
-
 	console.log(data.sender.username + ": " + data.content)
 
 	let prefix = "!";
@@ -63,16 +59,6 @@ function handleMessages(data) {
 ws.onopen = () => {
 	console.log('WebSocket connection established');
 
-	// Subscribe to the channel
-	//   const channelSubscription = {
-	//     event: 'pusher:subscribe',
-	//     data: {
-	//     //   auth: '',
-	//       channel: `channel.${channelID}`,
-	//     },
-	//   };
-	//   ws.send(JSON.stringify(channelSubscription));
-
 	// Subscribe to the chatroom
 	const chatroomSubscription = {
 		event: 'pusher:subscribe',
@@ -82,15 +68,6 @@ ws.onopen = () => {
 		},
 	};
 	ws.send(JSON.stringify(chatroomSubscription));
-};
-
-ws.onmessage = (event) => {
-	const message = JSON.parse(event.data);
-
-	console.log('Received message: ' + message.event);
-	if (message.event === 'App\\Events\\ChatMessageEvent') {
-		handleMessages(JSON.parse(message.data));
-	}
 };
 
 ws.onclose = () => {
@@ -103,5 +80,20 @@ ws.onclose = () => {
 	}
 		, 5000);
 };
+
+browser.emitter.on('ready', () => {
+	console.log("Browser ready")
+
+	ws.onmessage = (event) => {
+		const message = JSON.parse(event.data);
+
+		console.log('Received message: ' + message.event);
+		if (message.event === 'App\\Events\\ChatMessageEvent') {
+			handleMessages(JSON.parse(message.data));
+		}
+	};
+
+	loadTimers(client);
+})
 
 browser.initBrowser();

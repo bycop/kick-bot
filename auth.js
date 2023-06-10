@@ -2,7 +2,9 @@ require('dotenv').config();
 
 const playwright = require('playwright-extra');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
-const axios = require('axios');
+const EventEmitter = require('events');
+
+const emitter = new EventEmitter();
 
 const baseFetchUrl = 'https://kick.com';
 
@@ -24,7 +26,6 @@ const blockedResources = [
 
 
 let browser, page, client, context;
-let ready = false;
 
 async function sendMessage(message) {
   await page.evaluate(async (message) => {
@@ -46,7 +47,6 @@ async function sendMessage(message) {
       messageInput.dispatchEvent(enterKeyEvent);
     }
 
-    ready = true;
   }, message);
 }
 
@@ -95,15 +95,13 @@ async function initBrowser() {
   // Wait for the network request to complete
   await page.waitForSelector('div[id="message-input"]');
 
-  sendMessage("Bot is Ready!");
-}
+  await sendMessage("Bot is Ready!");
 
-async function isReady() {
-  return ready;
+  emitter.emit('ready');
 }
 
 module.exports = {
   initBrowser,
   sendMessage,
-  isReady
+  emitter
 }
